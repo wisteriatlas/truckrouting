@@ -2,6 +2,7 @@ import * as maplibregl from 'maplibre-gl'
 import type { GeoJSONSource, MapGeoJSONFeature, MapMouseEvent } from 'maplibre-gl'
 import type * as GeoJSON from 'geojson'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useMemo, useRef } from 'react'
 import { RISK_COLORS, fmtDateTime, routeName } from '../risk'
 import type { HeatmapData, Route } from '../types'
@@ -15,6 +16,8 @@ interface Props {
   focus: { lat: number; lon: number; n: number } | null
   onSelect: (id: number) => void
 }
+
+maplibregl.setWorkerUrl(workerUrl)
 
 type FC = GeoJSON.FeatureCollection
 const EMPTY: FC = { type: 'FeatureCollection', features: [] }
