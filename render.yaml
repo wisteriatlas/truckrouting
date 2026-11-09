@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: truck-routing-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: gunicorn config.wsgi --workers 2 --threads 4 --timeout 90
+    healthCheckPath: /api/health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "0"
+      - key: CORS_ALLOW_ALL
+        value: "1"
