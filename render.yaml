@@ -11,5 +11,7 @@ services:
         generateValue: true
       - key: DEBUG
         value: "0"
-      - key: CORS_ALLOW_ALL
-        value: "1"
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: CORS_ORIGINS
+        value: https://wisteriatlas.github.io
