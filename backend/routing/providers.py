@@ -6,6 +6,8 @@ from .geo import bearing, haversine_mi, offset_point
 
 OSRM = "https://router.project-osrm.org/route/v1/driving"
 PHOTON = "https://photon.komoot.io/api/"
+NOMINATIM = "https://nominatim.openstreetmap.org/search"
+OPEN_METEO_GEO = "https://geocoding-api.open-meteo.com/v1/search"
 M_PER_MI = 1609.344
 HEADERS = {"User-Agent": "truck-weather-router/1.0"}
 TRUCK_MAX_MPH = 62  # trucks are slower than OSRM's car profile
@@ -15,24 +17,55 @@ class ProviderError(Exception):
     pass
 
 
-def geocode(query: str, limit: int = 6):
-    key = f"geo:{query.strip().lower()}"
-    hit = cache.get(key)
-    if hit is not None:
-        return hit
-    try:
-        r = requests.get(PHOTON, params={"q": query, "limit": limit, "lang": "en", "bbox": "-170,15,-50,72"}, headers=HEADERS, timeout=10)
-        r.raise_for_status()
-    except requests.RequestException as e:
-        raise ProviderError(f"Geocoding unavailable: {e}") from e
+def _photon(query, limit):
+    r = requests.get(PHOTON, params={"q": query, "limit": limit, "lang": "en", "bbox": "-170,15,-50,72"},
+                     headers=HEADERS, timeout=8)
+    r.raise_for_status()
     out = []
     for f in r.json().get("features", []):
         p = f["properties"]
         lon, lat = f["geometry"]["coordinates"]
         parts = [p.get("name"), p.get("city") if p.get("city") != p.get("name") else None, p.get("state"), p.get("country")]
         out.append({"label": ", ".join(x for x in parts if x), "lat": lat, "lon": lon})
-    cache.set(key, out, 3600)
     return out
+
+
+def _nominatim(query, limit):
+    r = requests.get(NOMINATIM, params={"q": query, "format": "jsonv2", "limit": limit, "countrycodes": "us,ca,mx"},
+                     headers=HEADERS, timeout=8)
+    r.raise_for_status()
+    return [{"label": x["display_name"], "lat": float(x["lat"]), "lon": float(x["lon"])} for x in r.json()]
+
+
+def _open_meteo(query, limit):
+    r = requests.get(OPEN_METEO_GEO, params={"name": query, "count": limit, "language": "en"}, headers=HEADERS, timeout=8)
+    r.raise_for_status()
+    out = []
+    for x in r.json().get("results", []):
+        parts = [x.get("name"), x.get("admin1"), x.get("country")]
+        out.append({"label": ", ".join(p for p in parts if p), "lat": x["latitude"], "lon": x["longitude"]})
+    return out
+
+
+def geocode(query: str, limit: int = 6):
+    """Try several free geocoders in turn; hosted IPs are sometimes refused by one of them."""
+    key = f"geo:{query.strip().lower()}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    last = None
+    for fn in (_photon, _nominatim, _open_meteo):
+        try:
+            out = fn(query, limit)
+        except (requests.RequestException, ValueError, KeyError) as e:
+            last = e
+            continue
+        if out:
+            cache.set(key, out, 3600)
+            return out
+    if last:
+        raise ProviderError(f"Geocoding unavailable: {last}")
+    return []
 
 
 def _osrm(coords, alternatives):
