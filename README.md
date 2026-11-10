@@ -4,6 +4,11 @@ React + Django app that generates three driving routes, samples the forecast at 
 estimated arrival time along each one, classifies weather risk using the load rules, and
 recommends the safest route. A 0-48 h heatmap slider shows the corridor weather.
 
+## Live
+
+- App: https://wisteriatlas.github.io/truckrouting/
+- API: https://truck-routing-api-owru.onrender.com/api/health (Render free tier: the first request after idle takes ~30-60 s)
+
 ## Run locally
 
 ```bash
@@ -29,7 +34,7 @@ No API keys are required. Optional env vars are listed in `backend/.env.example`
 | Purpose | Service |
 |---|---|
 | Routing (3 routes) | OSRM public server (`alternatives=3`, plus via-point detours if fewer than 3 distinct routes come back) |
-| Geocoding | Photon (OpenStreetMap) |
+| Geocoding | Photon, falling back to Nominatim and Open-Meteo (Photon refuses some hosted IPs) |
 | Weather | Open-Meteo hourly forecast (wind mph, rain in/hr, snowfall in/hr) |
 | Map | MapLibre GL JS with OpenStreetMap tiles |
 
@@ -70,11 +75,10 @@ real risk level and does not inflate where points overlap.
 
 ## Deploy
 
-- Backend: `render.yaml` (Render web service, root `backend`). Free tiers sleep, so the first request
-  can be slow.
-- Frontend: Vercel or Netlify with root `frontend`, build `npm run build`, output `dist`, and env var
-  `VITE_API_URL` set to the backend URL. Set `CORS_ORIGINS` on the backend to the frontend URL
-  (or `CORS_ALLOW_ALL=1`).
+- Backend: Render web service (root `backend`; settings are in `render.yaml`, or create it by hand as a
+  Free web service). Free tiers sleep, so the first request can be slow.
+- Frontend: GitHub Pages via `.github/workflows/pages.yml`. The repo variable `VITE_API_URL` holds the
+  backend URL. Set `CORS_ORIGINS` on the backend to `https://wisteriatlas.github.io`.
 
 ## Limits
 
