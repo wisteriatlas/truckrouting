@@ -56,7 +56,11 @@ def analyze(origin, destination, departure: datetime, load_lb: float):
     grid = _grid([r["points"] for r in raw_routes])
 
     cp_points = [(c["lat"], c["lon"]) for cps in all_cps for c in cps]
-    series = weather.fetch_hourly(cp_points + grid)
+    last_eta = max(c["eta"] for cps in all_cps for c in cps)
+    end = max(last_eta, departure + timedelta(hours=HEATMAP_HOURS))
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    days = min(16, max(2, int((end - today).total_seconds() // 86400) + 2))
+    series = weather.fetch_hourly(cp_points + grid, days)
     cp_series, grid_series = series[:len(cp_points)], series[len(cp_points):]
 
     routes, k = [], 0
