@@ -9,6 +9,8 @@ recommends the safest route. A 0-48 h heatmap slider shows the corridor weather.
 - App: https://wisteriatlas.github.io/truckrouting/
 - API: https://truck-routing-api-owru.onrender.com/api/health (Render free tier: the first request after idle takes ~30-60 s)
 
+Architecture diagrams and a requirements coverage table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
 ## Run locally
 
 ```bash
