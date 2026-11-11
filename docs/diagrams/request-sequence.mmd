@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant U as User
+    participant FE as React app
+    participant BE as Django service
+    participant OS as OSRM
+    participant OM as Open-Meteo
+
+    U->>FE: origin, destination, time, load
+    FE->>BE: POST /api/analyze
+    BE->>OS: routes with alternatives
+    OS-->>BE: up to 3 geometries
+    Note over BE: add detour routes if fewer than 3, drop duplicates
+    Note over BE: checkpoints every 10/25/50 mi with ETA each
+    BE->>OM: one batched call, checkpoints plus heatmap grid, cached 15 min
+    OM-->>BE: hourly wind, rain, snow
+    Note over BE: pick forecast hour nearest each ETA, classify risk, summarize miles per level, rank
+    BE-->>FE: routes, checkpoints, recommendation, heatmap scores for 49 h
+    FE-->>U: map, cards, slider with no further requests
