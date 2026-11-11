@@ -15,25 +15,111 @@
 
 ## 2. System overview
 
-![System overview](diagrams/system-overview.png)
+```text
+ BROWSER (GitHub Pages)             DJANGO API (Render)                  FREE EXTERNAL APIS
++-------------------------+        +---------------------------+        +----------------------------+
+| React + TypeScript      |        | views.py    validation    |        | OSRM          routes       |
+|  form, route cards,     | -----> |     |                     | -----> | Open-Meteo    hourly       |
+|  checkpoint table,      |  POST  |     v                     |        |               forecast     |
+|  heatmap slider         |  /api/ | service.py  orchestration |        | Photon / Nominatim /       |
+|                         | analyze|     |-- geo.py       sampling + ETA | Open-Meteo    geocoding    |
+| MapLibre GL             |        |     |-- risk.py      classify |     +----------------------------+
+|  routes, checkpoints,   | <----- |     '-- recommend.py ranking |
+|  heatmap layer          |  JSON  |                           |
++-------------------------+        +---------------------------+
+        GET /api/geocode  ------>   views.py ------> geocoders
+```
 
 ## 3. What happens on one request
 
-![Request sequence](diagrams/request-sequence.png)
+```text
+User -> React: origin, destination, departure time, load
+React -> Django: POST /api/analyze
+
+Django:
+  1. OSRM            -> up to 3 route geometries
+                        (add detour routes if fewer than 3, drop duplicates)
+  2. geo.py          -> checkpoints every 10 / 25 / 50 mi, each with an ETA
+  3. Open-Meteo      -> ONE batched call: checkpoints + heatmap grid
+                        (cached 15 min, fetched in parallel)
+  4. weather.py      -> take the forecast hour nearest each ETA
+  5. risk.py         -> classify each checkpoint
+  6. recommend.py    -> miles per risk level per route, then rank
+  7. heatmap         -> risk score per grid point for each of the next 49 hours
+
+Django -> React: routes, checkpoints, recommendation, heatmap scores (one response)
+React: draws map + cards; the slider needs no more requests
+```
 
 ## 4. Risk classification (per checkpoint)
 
-![Risk classification](diagrams/risk-classification.png)
+```text
+ weather at ETA (wind mph, rain in/hr, snow in/hr)
+        |
+        v
+ band each condition:  Low | Moderate | High | Severe | No Travel
+        |
+        v
+ take the WORST of the three
+        |
+        v
+ wind >= 55 mph?  ------------------------------ yes --> NO TRAVEL
+        | no
+        v
+ wind 45-54 mph AND load > 30,000 lb?  ---------- yes --> NO TRAVEL
+        | no
+        v
+ wind 35-44 mph AND load > 40,000 lb?  ---------- yes --> at least SEVERE
+        | no
+        v
+ keep the worst-of-three level
+```
+
+Load rules only raise the level, never lower it.
 
 ## 5. Route recommendation
 
-![Route ranking](diagrams/route-ranking.png)
+```text
+ checkpoints (risk level + segment miles)
+        |
+        v
+ per route: miles at each level, mile-weighted average risk
+        |
+        v
+ sort, lowest wins, comparing in this order:
+   1. No Travel miles      (my addition: an undrivable route must not win)
+   2. Severe miles
+   3. High miles
+   4. Average risk
+   5. Duration
+        |
+        v
+ recommended route + one-line reason
+```
 
 Each checkpoint represents half the distance to each neighbour, so miles per risk level add up to the route length.
 
 ## 6. Heatmap data flow
 
-![Heatmap data flow](diagrams/heatmap-flow.png)
+```text
+ route polylines
+      |
+      v
+ grid: every 15 mi along each route, 12 mi to either side (max 240 points)
+      |
+      v
+ forecast for every grid point, 49 hours
+      |
+      v
+ risk score 0-4 per point per hour (same classify(), same load)
+      |
+      v
+ sent ONCE with the analysis response
+      |
+      v
+ slider changes the hour --> setData on one GeoJSON source
+                             (one update per frame, no network)
+```
 
 ## Design decisions
 
@@ -41,5 +127,3 @@ Each checkpoint represents half the distance to each neighbour, so miles per ris
 - **One response, no slider requests.** The heatmap ships with the analysis so scrubbing stays smooth.
 - **Blurred circles, not a density heatmap.** Colour always means the real risk level and does not inflate where points overlap.
 - **Resilience.** Weather calls are batched, cached and parallel; geocoding falls back across three providers.
-
-Diagram sources (Mermaid) are in [diagrams/](diagrams/) as `.mmd` files; the PNGs are rendered from them.

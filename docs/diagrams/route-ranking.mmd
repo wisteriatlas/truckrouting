@@ -1,4 +1,0 @@
-flowchart LR
-    CP["Checkpoints<br/>risk and segment miles"] --> SUM["Per route: miles at each level,<br/>mile-weighted average risk"]
-    SUM --> K["Sort key, lowest wins:<br/>1. No Travel miles<br/>2. Severe miles<br/>3. High miles<br/>4. Average risk<br/>5. Duration"]
-    K --> REC["Recommended route<br/>plus a one-line reason"]

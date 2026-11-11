@@ -1,7 +1,0 @@
-flowchart LR
-    A["Route polylines"] --> B["Grid: every 15 mi along each route,<br/>12 mi to either side, max 240 points"]
-    B --> C["Forecast for each point, 49 hours"]
-    C --> D["Risk score 0-4 per point per hour<br/>same classify function and load"]
-    D --> E["Sent once with the analysis"]
-    E --> F["Slider changes the hour"]
-    F --> G["setData on one GeoJSON source,<br/>one update per frame, no network"]
